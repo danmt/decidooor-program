@@ -14,4 +14,11 @@ pub mod decidooor {
     pub fn create_event(ctx: Context<CreateEvent>, arguments: CreateEventArguments) -> Result<()> {
         instructions::create_event::handle(ctx, arguments)
     }
+
+    pub fn create_project(
+        ctx: Context<CreateProject>,
+        arguments: CreateProjectArguments,
+    ) -> Result<()> {
+        instructions::create_project::handle(ctx, arguments)
+    }
 }

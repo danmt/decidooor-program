@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 #[account]
 pub struct Event {
+    pub authority: Pubkey,
     pub redeem_date: i64,
     pub votes_stats: Vec<EventVotesStats>,
 }

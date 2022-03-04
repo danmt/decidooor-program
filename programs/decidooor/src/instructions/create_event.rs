@@ -3,7 +3,6 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct CreateEvent<'info> {
-    #[account(mut)]
     pub authority: Signer<'info>,
     #[account(zero)]
     pub event: Account<'info, Event>,
@@ -15,6 +14,7 @@ pub struct CreateEventArguments {
 }
 
 pub fn handle(ctx: Context<CreateEvent>, arguments: CreateEventArguments) -> Result<()> {
+    ctx.accounts.event.authority = ctx.accounts.authority.key();
     ctx.accounts.event.redeem_date = arguments.redeem_date;
     ctx.accounts.event.votes_stats = Vec::new();
     Ok(())
