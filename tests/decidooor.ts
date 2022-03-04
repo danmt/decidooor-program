@@ -24,6 +24,7 @@ describe("decidooor", () => {
   let eventMintPublicKey: anchor.web3.PublicKey;
   let acceptedMintPublicKey: anchor.web3.PublicKey;
   let alice: anchor.web3.Keypair, aliceWallet: anchor.web3.PublicKey;
+  let aliceDonatorPublicKey: anchor.web3.PublicKey;
   let aliceDonatorVaultPublicKey: anchor.web3.PublicKey;
 
   before(async () => {
@@ -50,12 +51,19 @@ describe("decidooor", () => {
       [Buffer.from("event_mint", "utf-8"), eventPublicKey.toBuffer()],
       program.programId
     );
+    [aliceDonatorPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("donator", "utf-8"),
+        eventPublicKey.toBuffer(),
+        alice.publicKey.toBuffer(),
+      ],
+      program.programId
+    );
     [aliceDonatorVaultPublicKey] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
-          Buffer.from("donator", "utf-8"),
-          eventPublicKey.toBuffer(),
-          alice.publicKey.toBuffer(),
+          Buffer.from("donator_vault", "utf-8"),
+          aliceDonatorPublicKey.toBuffer(),
         ],
         program.programId
       );

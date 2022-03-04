@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::*;
 
-use crate::collections::Event;
+use crate::collections::{Donator, DonatorBumps, Event};
 
 #[derive(Accounts)]
 #[instruction(amount: u64)]
@@ -22,6 +22,17 @@ pub struct Deposit<'info> {
           b"donator".as_ref(),
           event.key().as_ref(), 
           authority.key().as_ref()
+        ],
+        bump,
+        space = 74
+    )]
+    pub donator: Box<Account<'info, Donator>>,
+    #[account(
+        init_if_needed,
+        payer = authority,
+        seeds = [
+          b"donator_vault".as_ref(),
+          donator.key().as_ref(),
         ],
         bump,
         token::mint = event_mint,
@@ -76,6 +87,14 @@ pub fn handle(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     ),
     amount,
   )?;
+
+  // Update donator
+  ctx.accounts.donator.authority = ctx.accounts.authority.key();
+  ctx.accounts.donator.event = ctx.accounts.event.key();
+  ctx.accounts.donator.bumps = DonatorBumps {
+    donator_bump: *ctx.bumps.get("donator").unwrap(),
+    donator_vault_bump: *ctx.bumps.get("donator_vault").unwrap(),
+  };
 
   Ok(())
 }
