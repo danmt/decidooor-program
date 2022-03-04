@@ -35,4 +35,8 @@ pub mod decidooor {
     pub fn vote(ctx: Context<Vote>, amount: u64) -> Result<()> {
         instructions::vote::handle(ctx, amount)
     }
+
+    pub fn redeem(ctx: Context<Redeem>) -> Result<()> {
+        instructions::redeem::handle(ctx)
+    }
 }

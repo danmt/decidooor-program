@@ -12,7 +12,7 @@ describe("decidooor", () => {
   const program = anchor.workspace.Decidooor as Program<Decidooor>;
   const eventId = "PHH";
   const eventSize = 1000;
-  const eventRedeemDate = new anchor.BN(Date.now());
+  const eventRedeemDate = new anchor.BN(Math.floor(Date.now() / 1000));
   const projectKeypair = anchor.web3.Keypair.generate();
   const projectTitle = "project #1";
   const projectDescription = "project #1 description";
@@ -187,6 +187,30 @@ describe("decidooor", () => {
       (eventAccount.votesStats as any)[0].votes.eq(
         new anchor.BN(amountToCharge)
       )
+    );
+  });
+
+  it("should redeem", async () => {
+    // act
+    await program.methods
+      .redeem()
+      .accounts({
+        event: eventPublicKey,
+        authority: projectOwner.publicKey,
+        project: projectKeypair.publicKey,
+        acceptedMint: acceptedMintPublicKey,
+        projectVault: projectVaultPublicKey,
+      })
+      .signers([projectOwner])
+      .rpc();
+    // assert
+    const projectVaultAccount = await getAccount(
+      program.provider.connection,
+      projectVaultPublicKey
+    );
+    assert.equal(
+      Number(projectVaultAccount.amount),
+      projectBalance + amountToTransfer
     );
   });
 });

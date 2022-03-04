@@ -10,4 +10,6 @@ pub enum ErrorCode {
     CannotRedeemYet,
     #[msg("Only the winner can redeem")]
     OnlyTheWinnerCanRedeem,
+    #[msg("Cant redeem empty event")]
+    CantRedeemEmptyEvent,
 }
