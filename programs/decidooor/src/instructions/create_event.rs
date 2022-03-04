@@ -53,6 +53,7 @@ pub fn handle(
     ctx.accounts.event.event_id = event_id;
     ctx.accounts.event.redeem_date = redeem_date;
     ctx.accounts.event.votes_stats = Vec::new();
+    ctx.accounts.event.is_redeemed = false;
 
     ctx.accounts.event.event_mint = ctx.accounts.event_mint.key();
     ctx.accounts.event.accepted_mint = ctx.accounts.accepted_mint.key();

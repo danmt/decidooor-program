@@ -77,5 +77,6 @@ pub fn handle(ctx: Context<Vote>, amount: u64) -> Result<()> {
        .ok_or(error!(ErrorCode::InvalidProject))?;
     let vote_state = &mut ctx.accounts.event.votes_stats[vote_stats_index];
     vote_state.votes = amount;
+    
     Ok(())
 }

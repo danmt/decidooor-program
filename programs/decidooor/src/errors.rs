@@ -4,4 +4,10 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("Invalid project")]
     InvalidProject,
+    #[msg("Already redeemed")]
+    AlreadyRedeemed,
+    #[msg("Cannot redeem yet")]
+    CannotRedeemYet,
+    #[msg("Only the winner can redeem")]
+    OnlyTheWinnerCanRedeem,
 }

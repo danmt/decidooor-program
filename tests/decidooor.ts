@@ -18,6 +18,7 @@ describe("decidooor", () => {
   const projectDescription = "project #1 description";
   const projectSize = 1000;
   const aliceBalance = 1000;
+  const projectBalance = 1000;
   const amountToTransfer = 420;
   const amountToCharge = 110;
   let eventPublicKey: anchor.web3.PublicKey;
@@ -27,6 +28,8 @@ describe("decidooor", () => {
   let alice: anchor.web3.Keypair, aliceWallet: anchor.web3.PublicKey;
   let aliceDonatorPublicKey: anchor.web3.PublicKey;
   let aliceDonatorVaultPublicKey: anchor.web3.PublicKey;
+  let projectOwner: anchor.web3.Keypair;
+  let projectVaultPublicKey: anchor.web3.PublicKey;
 
   before(async () => {
     acceptedMintPublicKey = await createMint(program.provider);
@@ -34,6 +37,11 @@ describe("decidooor", () => {
       program.provider,
       acceptedMintPublicKey,
       aliceBalance
+    );
+    [projectOwner, projectVaultPublicKey] = await createUserAndAssociatedWallet(
+      program.provider,
+      acceptedMintPublicKey,
+      projectBalance
     );
 
     [eventPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
@@ -95,11 +103,13 @@ describe("decidooor", () => {
         description: projectDescription,
       })
       .accounts({
-        authority: program.provider.wallet.publicKey,
+        authority: projectOwner.publicKey,
         event: eventPublicKey,
         project: projectKeypair.publicKey,
+        acceptedMint: acceptedMintPublicKey,
+        projectVault: projectVaultPublicKey,
       })
-      .signers([projectKeypair])
+      .signers([projectKeypair, projectOwner])
       .preInstructions([
         await program.account.project.createInstruction(
           projectKeypair,

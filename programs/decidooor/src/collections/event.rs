@@ -9,6 +9,7 @@ pub struct Event {
     pub accepted_mint: Pubkey,
     pub event_mint: Pubkey,
     pub vault: Pubkey,
+    pub is_redeemed: bool,
     pub bumps: EventBumps,
 }
 
