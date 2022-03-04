@@ -15,7 +15,7 @@ pub struct Event {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct EventVotesStats {
     pub project: Pubkey,
-    pub votes: u32,
+    pub votes: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

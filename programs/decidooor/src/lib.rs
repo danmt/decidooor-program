@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 declare_id!("C7EcdBmywF3p1CwMJntzFN81PNyaf92yKZbkseoPck8D");
 
 mod collections;
+mod errors;
 mod instructions;
 
 use instructions::*;
@@ -29,5 +30,9 @@ pub mod decidooor {
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         instructions::deposit::handle(ctx, amount)
+    }
+
+    pub fn vote(ctx: Context<Vote>, amount: u64) -> Result<()> {
+        instructions::vote::handle(ctx, amount)
     }
 }

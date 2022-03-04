@@ -19,6 +19,7 @@ describe("decidooor", () => {
   const projectSize = 1000;
   const aliceBalance = 1000;
   const amountToTransfer = 420;
+  const amountToCharge = 110;
   let eventPublicKey: anchor.web3.PublicKey;
   let vaultPublicKey: anchor.web3.PublicKey;
   let eventMintPublicKey: anchor.web3.PublicKey;
@@ -149,5 +150,33 @@ describe("decidooor", () => {
     assert.equal(Number(aliceDonatorVaultAccount.amount), amountToTransfer);
     assert.equal(Number(aliceAccount.amount), aliceBalance - amountToTransfer);
     assert.equal(Number(vaultAccount.amount), amountToTransfer);
+  });
+
+  it("should vote", async () => {
+    // act
+    await program.methods
+      .vote(new anchor.BN(amountToCharge))
+      .accounts({
+        event: eventPublicKey,
+        authority: alice.publicKey,
+        project: projectKeypair.publicKey,
+      })
+      .signers([alice])
+      .rpc();
+    // assert
+    const aliceDonatorVaultAccount = await getAccount(
+      program.provider.connection,
+      aliceDonatorVaultPublicKey
+    );
+    const eventAccount = await program.account.event.fetch(eventPublicKey);
+    assert.equal(
+      Number(aliceDonatorVaultAccount.amount),
+      amountToTransfer - amountToCharge
+    );
+    assert.ok(
+      (eventAccount.votesStats as any)[0].votes.eq(
+        new anchor.BN(amountToCharge)
+      )
+    );
   });
 });
