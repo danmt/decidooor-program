@@ -26,4 +26,8 @@ pub mod decidooor {
     ) -> Result<()> {
         instructions::create_project::handle(ctx, arguments)
     }
+
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        instructions::deposit::handle(ctx, amount)
+    }
 }

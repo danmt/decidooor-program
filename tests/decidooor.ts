@@ -1,5 +1,6 @@
 import * as anchor from "@heavy-duty/anchor";
 import { Program } from "@heavy-duty/anchor";
+import { getAccount } from "@solana/spl-token";
 import { assert } from "chai";
 import { Decidooor } from "../target/types/decidooor";
 import { createMint, createUserAndAssociatedWallet } from "./utils";
@@ -17,13 +18,22 @@ describe("decidooor", () => {
   const projectDescription = "project #1 description";
   const projectSize = 1000;
   const aliceBalance = 1000;
+  const amountToTransfer = 420;
   let eventPublicKey: anchor.web3.PublicKey;
   let vaultPublicKey: anchor.web3.PublicKey;
   let eventMintPublicKey: anchor.web3.PublicKey;
   let acceptedMintPublicKey: anchor.web3.PublicKey;
   let alice: anchor.web3.Keypair, aliceWallet: anchor.web3.PublicKey;
+  let aliceDonatorVaultPublicKey: anchor.web3.PublicKey;
 
   before(async () => {
+    acceptedMintPublicKey = await createMint(program.provider);
+    [alice, aliceWallet] = await createUserAndAssociatedWallet(
+      program.provider,
+      acceptedMintPublicKey,
+      aliceBalance
+    );
+
     [eventPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from("event", "utf-8"),
@@ -40,13 +50,15 @@ describe("decidooor", () => {
       [Buffer.from("event_mint", "utf-8"), eventPublicKey.toBuffer()],
       program.programId
     );
-
-    acceptedMintPublicKey = await createMint(program.provider);
-    [alice, aliceWallet] = await createUserAndAssociatedWallet(
-      program.provider,
-      acceptedMintPublicKey,
-      aliceBalance
-    );
+    [aliceDonatorVaultPublicKey] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("donator", "utf-8"),
+          eventPublicKey.toBuffer(),
+          alice.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
   });
 
   it("should create events", async () => {
@@ -100,5 +112,34 @@ describe("decidooor", () => {
       )
     );
     assert.equal((eventAccount.votesStats as any)[0].votes, 0);
+  });
+
+  it("should deposit", async () => {
+    // act
+    await program.methods
+      .deposit(new anchor.BN(amountToTransfer))
+      .accounts({
+        payer: aliceWallet,
+        authority: alice.publicKey,
+        event: eventPublicKey,
+      })
+      .signers([alice])
+      .rpc();
+    // assert
+    const aliceDonatorVaultAccount = await getAccount(
+      program.provider.connection,
+      aliceDonatorVaultPublicKey
+    );
+    const aliceAccount = await getAccount(
+      program.provider.connection,
+      aliceWallet
+    );
+    const vaultAccount = await getAccount(
+      program.provider.connection,
+      vaultPublicKey
+    );
+    assert.equal(Number(aliceDonatorVaultAccount.amount), amountToTransfer);
+    assert.equal(Number(aliceAccount.amount), aliceBalance - amountToTransfer);
+    assert.equal(Number(vaultAccount.amount), amountToTransfer);
   });
 });
