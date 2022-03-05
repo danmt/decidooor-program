@@ -7,12 +7,14 @@ pub struct Vote<'info> {
     pub authority: Signer<'info>,
     #[account(mut)]
     pub event: Box<Account<'info, Event>>,
-    #[account(constraint = project.event == event.key())]
+    #[account(
+        constraint = project.event == event.key() @ ErrorCode::InvalidEvent
+    )]
     pub project: Box<Account<'info, Project>>,
     #[account(
         mut,
-        constraint = !participant.has_voted,
-        has_one = authority
+        constraint = !participant.has_voted @ ErrorCode::ParticipantAlreadyVoted,
+        has_one = authority @ ErrorCode::UnauthorizedVote
     )]
     pub participant: Box<Account<'info, Participant>>,
 }

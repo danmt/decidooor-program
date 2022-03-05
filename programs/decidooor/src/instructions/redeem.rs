@@ -6,6 +6,9 @@ use anchor_spl::token::*;
 #[derive(Accounts)]
 pub struct Redeem<'info> {
     pub authority: Signer<'info>,
+    #[account(
+        has_one = authority @ ErrorCode::OnlyTheProjectOwnerCanRedeem 
+    )]
     pub project: Box<Account<'info, Project>>,
     #[account(mut)]
     pub event: Box<Account<'info, Event>>,
