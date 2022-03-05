@@ -7,6 +7,7 @@ import {
   createAssociatedTokenAccount,
   createFundedWallet,
   createMint,
+  transfer,
 } from "./utils";
 
 describe("decidooor", () => {
@@ -25,7 +26,7 @@ describe("decidooor", () => {
   const participantKeypair = anchor.web3.Keypair.generate();
   const aliceBalance = 1000;
   const projectBalance = 1000;
-  const amountToTransfer = 420;
+  const amountToDeposit = 420;
   let eventPublicKey: anchor.web3.PublicKey;
   let vaultPublicKey: anchor.web3.PublicKey;
   let acceptedMintPublicKey: anchor.web3.PublicKey;
@@ -151,15 +152,13 @@ describe("decidooor", () => {
 
   it("should deposit", async () => {
     // act
-    await program.methods
-      .deposit(new anchor.BN(amountToTransfer))
-      .accounts({
-        payer: aliceWallet,
-        authority: alice.publicKey,
-        event: eventPublicKey,
-      })
-      .signers([alice])
-      .rpc();
+    await transfer(
+      program.provider,
+      aliceWallet,
+      vaultPublicKey,
+      alice,
+      amountToDeposit
+    );
     // assert
     const aliceAccount = await getAccount(
       program.provider.connection,
@@ -169,8 +168,8 @@ describe("decidooor", () => {
       program.provider.connection,
       vaultPublicKey
     );
-    assert.equal(Number(aliceAccount.amount), aliceBalance - amountToTransfer);
-    assert.equal(Number(vaultAccount.amount), amountToTransfer);
+    assert.equal(Number(aliceAccount.amount), aliceBalance - amountToDeposit);
+    assert.equal(Number(vaultAccount.amount), amountToDeposit);
   });
 
   it("should vote", async () => {
@@ -210,7 +209,7 @@ describe("decidooor", () => {
     );
     assert.equal(
       Number(projectVaultAccount.amount),
-      projectBalance + amountToTransfer
+      projectBalance + amountToDeposit
     );
   });
 });

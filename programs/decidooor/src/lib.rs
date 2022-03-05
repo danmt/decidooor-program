@@ -33,10 +33,6 @@ pub mod decidooor {
         instructions::create_project::handle(ctx, arguments)
     }
 
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        instructions::deposit::handle(ctx, amount)
-    }
-
     pub fn vote(ctx: Context<Vote>) -> Result<()> {
         instructions::vote::handle(ctx)
     }
