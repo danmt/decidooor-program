@@ -15,8 +15,8 @@ describe("decidooor", () => {
   anchor.setProvider(anchor.Provider.env());
 
   const program = anchor.workspace.Decidooor as Program<Decidooor>;
-  const eventSize = 1000;
-  const eventId = "PHH";
+  const eventKeypair = anchor.web3.Keypair.generate();
+  const eventStateSize = 1000;
   const eventCapacity = new anchor.BN(200);
   const eventRedeemDate = new anchor.BN(Math.floor(Date.now() / 1000));
   const projectSize = 1000;
@@ -32,8 +32,9 @@ describe("decidooor", () => {
   const participant3Keypair = anchor.web3.Keypair.generate();
   const aliceBalance = 1000;
   const amountToDeposit = 420;
-  let eventPublicKey: anchor.web3.PublicKey;
-  let vaultPublicKey: anchor.web3.PublicKey;
+  let eventStatePublicKey: anchor.web3.PublicKey;
+  let eventVotesPublicKey: anchor.web3.PublicKey;
+  let eventVaultPublicKey: anchor.web3.PublicKey;
   let acceptedMintPublicKey: anchor.web3.PublicKey;
   let alice: anchor.web3.Keypair, aliceWallet: anchor.web3.PublicKey;
   let participant1Owner: anchor.web3.Keypair;
@@ -70,16 +71,16 @@ describe("decidooor", () => {
       acceptedMintPublicKey,
       projectBalance
     );
-    [eventPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("event", "utf-8"),
-        Buffer.from(eventId, "utf-8"),
-        program.provider.wallet.publicKey.toBuffer(),
-      ],
+    [eventStatePublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("event_state", "utf-8"), eventKeypair.publicKey.toBuffer()],
       program.programId
     );
-    [vaultPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("vault", "utf-8"), eventPublicKey.toBuffer()],
+    [eventVotesPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("event_votes", "utf-8"), eventKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    [eventVaultPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("event_vault", "utf-8"), eventKeypair.publicKey.toBuffer()],
       program.programId
     );
   });
@@ -88,23 +89,26 @@ describe("decidooor", () => {
     // act
     await program.methods
       .createEvent(
-        eventId,
         eventRedeemDate,
         new anchor.BN(eventCapacity),
-        eventSize
+        eventStateSize
       )
       .accounts({
         authority: program.provider.wallet.publicKey,
         acceptedMint: acceptedMintPublicKey,
+        event: eventKeypair.publicKey,
       })
+      .signers([eventKeypair])
       .rpc();
     // assert
-    const eventAccount = await program.account.event.fetch(eventPublicKey);
-    assert.ok(eventAccount.redeemDate.eq(eventRedeemDate));
-    assert.ok(eventAccount.capacity.eq(eventCapacity));
-    assert.ok(eventAccount.registeredParticipants.eq(new anchor.BN(0)));
-    assert.ok(eventAccount.acceptedMint.equals(acceptedMintPublicKey));
-    assert.ok(eventAccount.vault.equals(vaultPublicKey));
+    const eventStateAccount = await program.account.eventState.fetch(
+      eventStatePublicKey
+    );
+    assert.ok(eventStateAccount.redeemDate.eq(eventRedeemDate));
+    assert.ok(eventStateAccount.capacity.eq(eventCapacity));
+    assert.ok(eventStateAccount.registeredParticipants.eq(new anchor.BN(0)));
+    assert.ok(eventStateAccount.acceptedMint.equals(acceptedMintPublicKey));
+    assert.ok(eventStateAccount.vault.equals(eventVaultPublicKey));
   });
 
   it("should check in participant", async () => {
@@ -115,7 +119,7 @@ describe("decidooor", () => {
         .accounts({
           authority: participant1Owner.publicKey,
           participant: participant1Keypair.publicKey,
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
         })
         .signers([participant1Keypair, participant1Owner])
         .rpc(),
@@ -124,7 +128,7 @@ describe("decidooor", () => {
         .accounts({
           authority: participant2Owner.publicKey,
           participant: participant2Keypair.publicKey,
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
         })
         .signers([participant2Keypair, participant2Owner])
         .rpc(),
@@ -133,18 +137,20 @@ describe("decidooor", () => {
         .accounts({
           authority: participant3Owner.publicKey,
           participant: participant3Keypair.publicKey,
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
         })
         .signers([participant3Keypair, participant3Owner])
         .rpc(),
     ]);
     // assert
-    const eventAccount = await program.account.event.fetch(eventPublicKey);
+    const eventStateAccount = await program.account.eventState.fetch(
+      eventStatePublicKey
+    );
     const participant1Account = await program.account.participant.fetch(
       participant1Keypair.publicKey
     );
-    assert.ok(eventAccount.registeredParticipants.eq(new anchor.BN(3)));
-    assert.ok(participant1Account.event.equals(eventPublicKey));
+    assert.ok(eventStateAccount.registeredParticipants.eq(new anchor.BN(3)));
+    assert.ok(participant1Account.event.equals(eventKeypair.publicKey));
     assert.ok(
       participant1Account.authority.equals(participant1Owner.publicKey)
     );
@@ -161,7 +167,7 @@ describe("decidooor", () => {
         })
         .accounts({
           authority: project1Owner.publicKey,
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           project: project1Keypair.publicKey,
           acceptedMint: acceptedMintPublicKey,
           projectVault: project1OwnerWallet,
@@ -181,7 +187,7 @@ describe("decidooor", () => {
         })
         .accounts({
           authority: project2Owner.publicKey,
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           project: project2Keypair.publicKey,
           acceptedMint: acceptedMintPublicKey,
           projectVault: project2OwnerWallet,
@@ -199,17 +205,22 @@ describe("decidooor", () => {
     const projectAccount = await program.account.project.fetch(
       project1Keypair.publicKey
     );
-    const eventAccount = await program.account.event.fetch(eventPublicKey);
+    const eventStateAccount = await program.account.eventState.fetch(
+      eventStatePublicKey
+    );
+    const eventVotesAccount = await program.account.eventVotes.fetch(
+      eventVotesPublicKey
+    );
     assert.equal(projectAccount.title, project1Title);
     assert.equal(projectAccount.description, project1Description);
-    assert.ok(projectAccount.event.equals(eventPublicKey));
-    assert.equal((eventAccount.votesStats as any).length, 2);
+    assert.ok(projectAccount.event.equals(eventKeypair.publicKey));
+    assert.equal((eventVotesAccount.votesStats as any).length, 2);
     assert.ok(
-      (eventAccount.votesStats as any)[0].project.equals(
+      (eventVotesAccount.votesStats as any)[0].project.equals(
         project1Keypair.publicKey
       )
     );
-    assert.equal((eventAccount.votesStats as any)[0].votes, 0);
+    assert.equal((eventVotesAccount.votesStats as any)[0].votes, 0);
   });
 
   it("should deposit", async () => {
@@ -217,7 +228,7 @@ describe("decidooor", () => {
     await transfer(
       program.provider,
       aliceWallet,
-      vaultPublicKey,
+      eventVaultPublicKey,
       alice,
       amountToDeposit
     );
@@ -228,7 +239,7 @@ describe("decidooor", () => {
     );
     const vaultAccount = await getAccount(
       program.provider.connection,
-      vaultPublicKey
+      eventVaultPublicKey
     );
     assert.equal(Number(aliceAccount.amount), aliceBalance - amountToDeposit);
     assert.equal(Number(vaultAccount.amount), amountToDeposit);
@@ -241,7 +252,7 @@ describe("decidooor", () => {
       await program.methods
         .vote()
         .accounts({
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           authority: participant2Owner.publicKey,
           project: project1Keypair.publicKey,
           participant: participant1Keypair.publicKey,
@@ -257,38 +268,31 @@ describe("decidooor", () => {
 
   it("should fail when event is invalid", async () => {
     let error: ProgramError;
-    const event2Id = "PHH2";
+    const event2Keypair = anchor.web3.Keypair.generate();
     const event2Capacity = new anchor.BN(200);
     const event2RedeemDate = new anchor.BN(Math.floor(Date.now() / 1000));
     const participantKeypair = anchor.web3.Keypair.generate();
-    const [event2PublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("event", "utf-8"),
-        Buffer.from(event2Id, "utf-8"),
-        program.provider.wallet.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
     const participantOwner = await createFundedWallet(program.provider);
     // act
     await program.methods
       .createEvent(
-        event2Id,
         event2RedeemDate,
         new anchor.BN(event2Capacity),
-        eventSize
+        eventStateSize
       )
       .accounts({
         authority: program.provider.wallet.publicKey,
         acceptedMint: acceptedMintPublicKey,
+        event: event2Keypair.publicKey,
       })
+      .signers([event2Keypair])
       .rpc();
     await program.methods
       .checkIn()
       .accounts({
         authority: participantOwner.publicKey,
         participant: participantKeypair.publicKey,
-        event: eventPublicKey,
+        event: eventKeypair.publicKey,
       })
       .signers([participantKeypair, participantOwner])
       .rpc();
@@ -296,7 +300,7 @@ describe("decidooor", () => {
       await program.methods
         .vote()
         .accounts({
-          event: event2PublicKey,
+          event: event2Keypair.publicKey,
           authority: participantOwner.publicKey,
           project: project1Keypair.publicKey,
           participant: participantKeypair.publicKey,
@@ -315,7 +319,7 @@ describe("decidooor", () => {
     await program.methods
       .vote()
       .accounts({
-        event: eventPublicKey,
+        event: eventKeypair.publicKey,
         authority: participant1Owner.publicKey,
         project: project1Keypair.publicKey,
         participant: participant1Keypair.publicKey,
@@ -325,7 +329,7 @@ describe("decidooor", () => {
     await program.methods
       .vote()
       .accounts({
-        event: eventPublicKey,
+        event: eventKeypair.publicKey,
         authority: participant2Owner.publicKey,
         project: project2Keypair.publicKey,
         participant: participant2Keypair.publicKey,
@@ -335,7 +339,7 @@ describe("decidooor", () => {
     await program.methods
       .vote()
       .accounts({
-        event: eventPublicKey,
+        event: eventKeypair.publicKey,
         authority: participant3Owner.publicKey,
         project: project2Keypair.publicKey,
         participant: participant3Keypair.publicKey,
@@ -343,9 +347,15 @@ describe("decidooor", () => {
       .signers([participant3Owner])
       .rpc();
     // assert
-    const eventAccount = await program.account.event.fetch(eventPublicKey);
-    assert.ok((eventAccount.votesStats as any)[0].votes.eq(new anchor.BN(1)));
-    assert.ok((eventAccount.votesStats as any)[1].votes.eq(new anchor.BN(2)));
+    const eventVotesAccount = await program.account.eventVotes.fetch(
+      eventVotesPublicKey
+    );
+    assert.ok(
+      (eventVotesAccount.votesStats as any)[0].votes.eq(new anchor.BN(1))
+    );
+    assert.ok(
+      (eventVotesAccount.votesStats as any)[1].votes.eq(new anchor.BN(2))
+    );
   });
 
   it("should fail when participant already voted", async () => {
@@ -355,7 +365,7 @@ describe("decidooor", () => {
       await program.methods
         .vote()
         .accounts({
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           authority: participant1Owner.publicKey,
           project: project1Keypair.publicKey,
           participant: participant1Keypair.publicKey,
@@ -377,7 +387,7 @@ describe("decidooor", () => {
       await program.methods
         .redeem()
         .accounts({
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           authority: project1Owner.publicKey,
           project: project1Keypair.publicKey,
           acceptedMint: acceptedMintPublicKey,
@@ -397,7 +407,7 @@ describe("decidooor", () => {
     await program.methods
       .redeem()
       .accounts({
-        event: eventPublicKey,
+        event: eventKeypair.publicKey,
         authority: project2Owner.publicKey,
         project: project2Keypair.publicKey,
         acceptedMint: acceptedMintPublicKey,
@@ -410,8 +420,10 @@ describe("decidooor", () => {
       program.provider.connection,
       project2OwnerWallet
     );
-    const eventAccount = await program.account.event.fetch(eventPublicKey);
-    assert.ok(eventAccount.isRedeemed);
+    const eventStateAccount = await program.account.eventState.fetch(
+      eventStatePublicKey
+    );
+    assert.ok(eventStateAccount.isRedeemed);
     assert.equal(
       Number(projectVaultAccount.amount),
       projectBalance + amountToDeposit
@@ -426,7 +438,7 @@ describe("decidooor", () => {
       await program.methods
         .redeem()
         .accounts({
-          event: eventPublicKey,
+          event: eventKeypair.publicKey,
           authority: project2Owner.publicKey,
           project: project2Keypair.publicKey,
           acceptedMint: acceptedMintPublicKey,
@@ -443,37 +455,28 @@ describe("decidooor", () => {
 
   it("should fail when redeeming before established date", async () => {
     let error: ProgramError;
-    const event3Id = "PHH3";
+    const event3Keypair = anchor.web3.Keypair.generate();
     const event3Capacity = new anchor.BN(200);
     const event3RedeemDate = new anchor.BN(Math.floor((Date.now() * 2) / 1000));
-    const participantKeypair = anchor.web3.Keypair.generate();
-    const [event3PublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("event", "utf-8"),
-        Buffer.from(event3Id, "utf-8"),
-        program.provider.wallet.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
-    const participantOwner = await createFundedWallet(program.provider);
     // act
     await program.methods
       .createEvent(
-        event3Id,
         event3RedeemDate,
         new anchor.BN(event3Capacity),
-        eventSize
+        eventStateSize
       )
       .accounts({
         authority: program.provider.wallet.publicKey,
         acceptedMint: acceptedMintPublicKey,
+        event: event3Keypair.publicKey,
       })
+      .signers([event3Keypair])
       .rpc();
     try {
       await program.methods
         .redeem()
         .accounts({
-          event: event3PublicKey,
+          event: event3Keypair.publicKey,
           authority: project2Owner.publicKey,
           project: project2Keypair.publicKey,
           acceptedMint: acceptedMintPublicKey,

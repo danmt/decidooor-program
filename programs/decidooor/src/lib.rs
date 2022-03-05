@@ -14,12 +14,11 @@ pub mod decidooor {
 
     pub fn create_event(
         ctx: Context<CreateEvent>,
-        event_id: String,
         redeem_date: i64,
         capacity: u64,
         event_space: u32,
     ) -> Result<()> {
-        instructions::create_event::handle(ctx, event_id, redeem_date, capacity, event_space)
+        instructions::create_event::handle(ctx, redeem_date, capacity, event_space)
     }
 
     pub fn check_in(ctx: Context<CheckIn>) -> Result<()> {
