@@ -5,4 +5,5 @@ pub struct Participant {
     pub authority: Pubkey,
     pub event: Pubkey,
     pub has_voted: bool,
+    pub bump: u8,
 }

@@ -21,8 +21,12 @@ pub struct Vote<'info> {
     pub project: Box<Account<'info, Project>>,
     #[account(
         mut,
+        seeds = [
+            b"participant".as_ref(),
+            authority.key().as_ref(),
+        ],
+        bump = participant.bump,
         constraint = !participant.has_voted @ ErrorCode::ParticipantAlreadyVoted,
-        has_one = authority @ ErrorCode::UnauthorizedVote
     )]
     pub participant: Box<Account<'info, Participant>>,
 }

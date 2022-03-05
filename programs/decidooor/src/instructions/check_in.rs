@@ -17,8 +17,13 @@ pub struct CheckIn<'info> {
     pub event_state: Account<'info, EventState>,
     #[account(
         init,
+        seeds = [
+            b"participant".as_ref(),
+            authority.key().as_ref(),
+        ],
+        bump,
         payer = authority,
-        space = 74
+        space = 75
     )]
     pub participant: Account<'info, Participant>,
     pub system_program: Program<'info, System>,
@@ -29,6 +34,7 @@ pub fn handle(ctx: Context<CheckIn>) -> Result<()> {
     ctx.accounts.participant.authority = ctx.accounts.authority.key();
     ctx.accounts.participant.event = ctx.accounts.event.key();
     ctx.accounts.participant.has_voted = false;
+    ctx.accounts.participant.bump = *ctx.bumps.get("participant").unwrap();
 
     // Increate number of participants
     ctx.accounts.event_state.registered_participants += 1;
