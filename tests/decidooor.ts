@@ -3,7 +3,11 @@ import { Program } from "@heavy-duty/anchor";
 import { getAccount } from "@solana/spl-token";
 import { assert } from "chai";
 import { Decidooor } from "../target/types/decidooor";
-import { createMint, createUserAndAssociatedWallet } from "./utils";
+import {
+  createAssociatedTokenAccount,
+  createFundedWallet,
+  createMint,
+} from "./utils";
 
 describe("decidooor", () => {
   // Configure the client to use the local cluster.
@@ -12,38 +16,41 @@ describe("decidooor", () => {
   const program = anchor.workspace.Decidooor as Program<Decidooor>;
   const eventId = "PHH";
   const eventSize = 1000;
+  const eventCapacity = new anchor.BN(200);
   const eventRedeemDate = new anchor.BN(Math.floor(Date.now() / 1000));
   const projectKeypair = anchor.web3.Keypair.generate();
   const projectTitle = "project #1";
   const projectDescription = "project #1 description";
   const projectSize = 1000;
+  const participantKeypair = anchor.web3.Keypair.generate();
   const aliceBalance = 1000;
   const projectBalance = 1000;
   const amountToTransfer = 420;
-  const amountToCharge = 110;
   let eventPublicKey: anchor.web3.PublicKey;
   let vaultPublicKey: anchor.web3.PublicKey;
-  let eventMintPublicKey: anchor.web3.PublicKey;
   let acceptedMintPublicKey: anchor.web3.PublicKey;
   let alice: anchor.web3.Keypair, aliceWallet: anchor.web3.PublicKey;
-  let aliceDonatorPublicKey: anchor.web3.PublicKey;
-  let aliceDonatorVaultPublicKey: anchor.web3.PublicKey;
-  let projectOwner: anchor.web3.Keypair;
-  let projectVaultPublicKey: anchor.web3.PublicKey;
+  let bob: anchor.web3.Keypair;
+  let projectOwner: anchor.web3.Keypair,
+    projectOwnerWallet: anchor.web3.PublicKey;
 
   before(async () => {
     acceptedMintPublicKey = await createMint(program.provider);
-    [alice, aliceWallet] = await createUserAndAssociatedWallet(
+    bob = await createFundedWallet(program.provider);
+    alice = await createFundedWallet(program.provider);
+    aliceWallet = await createAssociatedTokenAccount(
       program.provider,
+      alice,
       acceptedMintPublicKey,
       aliceBalance
     );
-    [projectOwner, projectVaultPublicKey] = await createUserAndAssociatedWallet(
+    projectOwner = await createFundedWallet(program.provider);
+    projectOwnerWallet = await createAssociatedTokenAccount(
       program.provider,
+      projectOwner,
       acceptedMintPublicKey,
-      projectBalance
+      aliceBalance
     );
-
     [eventPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from("event", "utf-8"),
@@ -56,32 +63,17 @@ describe("decidooor", () => {
       [Buffer.from("vault", "utf-8"), eventPublicKey.toBuffer()],
       program.programId
     );
-    [eventMintPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("event_mint", "utf-8"), eventPublicKey.toBuffer()],
-      program.programId
-    );
-    [aliceDonatorPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("donator", "utf-8"),
-        eventPublicKey.toBuffer(),
-        alice.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
-    [aliceDonatorVaultPublicKey] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from("donator_vault", "utf-8"),
-          aliceDonatorPublicKey.toBuffer(),
-        ],
-        program.programId
-      );
   });
 
-  it("should create events", async () => {
+  it("should create event", async () => {
     // act
     await program.methods
-      .createEvent(eventId, eventRedeemDate, eventSize)
+      .createEvent(
+        eventId,
+        eventRedeemDate,
+        new anchor.BN(eventCapacity),
+        eventSize
+      )
       .accounts({
         authority: program.provider.wallet.publicKey,
         acceptedMint: acceptedMintPublicKey,
@@ -90,9 +82,32 @@ describe("decidooor", () => {
     // assert
     const eventAccount = await program.account.event.fetch(eventPublicKey);
     assert.ok(eventAccount.redeemDate.eq(eventRedeemDate));
+    assert.ok(eventAccount.capacity.eq(eventCapacity));
+    assert.ok(eventAccount.registeredParticipants.eq(new anchor.BN(0)));
     assert.ok(eventAccount.acceptedMint.equals(acceptedMintPublicKey));
-    assert.ok(eventAccount.eventMint.equals(eventMintPublicKey));
     assert.ok(eventAccount.vault.equals(vaultPublicKey));
+  });
+
+  it("should check in participant", async () => {
+    // act
+    await program.methods
+      .checkIn()
+      .accounts({
+        authority: bob.publicKey,
+        participant: participantKeypair.publicKey,
+        event: eventPublicKey,
+      })
+      .signers([participantKeypair, bob])
+      .rpc();
+    // assert
+    const eventAccount = await program.account.event.fetch(eventPublicKey);
+    const participantAccount = await program.account.participant.fetch(
+      participantKeypair.publicKey
+    );
+    assert.ok(eventAccount.registeredParticipants.eq(new anchor.BN(1)));
+    assert.ok(participantAccount.event.equals(eventPublicKey));
+    assert.ok(participantAccount.authority.equals(bob.publicKey));
+    assert.ok(!participantAccount.hasVoted);
   });
 
   it("should create project", async () => {
@@ -107,7 +122,7 @@ describe("decidooor", () => {
         event: eventPublicKey,
         project: projectKeypair.publicKey,
         acceptedMint: acceptedMintPublicKey,
-        projectVault: projectVaultPublicKey,
+        projectVault: projectOwnerWallet,
       })
       .signers([projectKeypair, projectOwner])
       .preInstructions([
@@ -124,6 +139,7 @@ describe("decidooor", () => {
     const eventAccount = await program.account.event.fetch(eventPublicKey);
     assert.equal(projectAccount.title, projectTitle);
     assert.equal(projectAccount.description, projectDescription);
+    assert.ok(projectAccount.event.equals(eventPublicKey));
     assert.equal((eventAccount.votesStats as any).length, 1);
     assert.ok(
       (eventAccount.votesStats as any)[0].project.equals(
@@ -145,10 +161,6 @@ describe("decidooor", () => {
       .signers([alice])
       .rpc();
     // assert
-    const aliceDonatorVaultAccount = await getAccount(
-      program.provider.connection,
-      aliceDonatorVaultPublicKey
-    );
     const aliceAccount = await getAccount(
       program.provider.connection,
       aliceWallet
@@ -157,7 +169,6 @@ describe("decidooor", () => {
       program.provider.connection,
       vaultPublicKey
     );
-    assert.equal(Number(aliceDonatorVaultAccount.amount), amountToTransfer);
     assert.equal(Number(aliceAccount.amount), aliceBalance - amountToTransfer);
     assert.equal(Number(vaultAccount.amount), amountToTransfer);
   });
@@ -165,29 +176,18 @@ describe("decidooor", () => {
   it("should vote", async () => {
     // act
     await program.methods
-      .vote(new anchor.BN(amountToCharge))
+      .vote()
       .accounts({
         event: eventPublicKey,
-        authority: alice.publicKey,
+        authority: bob.publicKey,
         project: projectKeypair.publicKey,
+        participant: participantKeypair.publicKey,
       })
-      .signers([alice])
+      .signers([bob])
       .rpc();
     // assert
-    const aliceDonatorVaultAccount = await getAccount(
-      program.provider.connection,
-      aliceDonatorVaultPublicKey
-    );
     const eventAccount = await program.account.event.fetch(eventPublicKey);
-    assert.equal(
-      Number(aliceDonatorVaultAccount.amount),
-      amountToTransfer - amountToCharge
-    );
-    assert.ok(
-      (eventAccount.votesStats as any)[0].votes.eq(
-        new anchor.BN(amountToCharge)
-      )
-    );
+    assert.ok((eventAccount.votesStats as any)[0].votes.eq(new anchor.BN(1)));
   });
 
   it("should redeem", async () => {
@@ -199,14 +199,14 @@ describe("decidooor", () => {
         authority: projectOwner.publicKey,
         project: projectKeypair.publicKey,
         acceptedMint: acceptedMintPublicKey,
-        projectVault: projectVaultPublicKey,
+        projectVault: projectOwnerWallet,
       })
       .signers([projectOwner])
       .rpc();
     // assert
     const projectVaultAccount = await getAccount(
       program.provider.connection,
-      projectVaultPublicKey
+      projectOwnerWallet
     );
     assert.equal(
       Number(projectVaultAccount.amount),

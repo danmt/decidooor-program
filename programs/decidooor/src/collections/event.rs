@@ -7,8 +7,9 @@ pub struct Event {
     pub redeem_date: i64,
     pub votes_stats: Vec<EventVotesStats>,
     pub accepted_mint: Pubkey,
-    pub event_mint: Pubkey,
     pub vault: Pubkey,
+    pub capacity: u64,
+    pub registered_participants: u64,
     pub is_redeemed: bool,
     pub bumps: EventBumps,
 }
@@ -22,6 +23,5 @@ pub struct EventVotesStats {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct EventBumps {
     pub event_bump: u8,
-    pub event_mint_bump: u8,
     pub vault_bump: u8,
 }

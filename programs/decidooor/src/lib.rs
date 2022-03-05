@@ -16,9 +16,14 @@ pub mod decidooor {
         ctx: Context<CreateEvent>,
         event_id: String,
         redeem_date: i64,
+        capacity: u64,
         event_space: u32,
     ) -> Result<()> {
-        instructions::create_event::handle(ctx, event_id, redeem_date, event_space)
+        instructions::create_event::handle(ctx, event_id, redeem_date, capacity, event_space)
+    }
+
+    pub fn check_in(ctx: Context<CheckIn>) -> Result<()> {
+        instructions::check_in::handle(ctx)
     }
 
     pub fn create_project(
@@ -32,8 +37,8 @@ pub mod decidooor {
         instructions::deposit::handle(ctx, amount)
     }
 
-    pub fn vote(ctx: Context<Vote>, amount: u64) -> Result<()> {
-        instructions::vote::handle(ctx, amount)
+    pub fn vote(ctx: Context<Vote>) -> Result<()> {
+        instructions::vote::handle(ctx)
     }
 
     pub fn redeem(ctx: Context<Redeem>) -> Result<()> {

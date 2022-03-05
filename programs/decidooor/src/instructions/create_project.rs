@@ -27,6 +27,7 @@ pub struct CreateProjectArguments {
 
 pub fn handle(ctx: Context<CreateProject>, arguments: CreateProjectArguments) -> Result<()> {
     ctx.accounts.project.authority = ctx.accounts.authority.key();
+    ctx.accounts.project.event = ctx.accounts.event.key();
     ctx.accounts.project.vault = ctx.accounts.project_vault.key();
     ctx.accounts.project.title = arguments.title;
     ctx.accounts.project.description = arguments.description;

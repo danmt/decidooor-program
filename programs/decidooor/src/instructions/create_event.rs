@@ -3,7 +3,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::*;
 
 #[derive(Accounts)]
-#[instruction(event_id: String, redeem_date: i64, event_space: u32)]
+#[instruction(
+    event_id: String, 
+    redeem_date: i64,
+    capacity: u64, 
+    event_space: u32,
+)]
 pub struct CreateEvent<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -22,15 +27,6 @@ pub struct CreateEvent<'info> {
     pub accepted_mint: Box<Account<'info, Mint>>,
     #[account(
         init,
-        seeds = [b"event_mint".as_ref(), event.key().as_ref()],
-        bump,
-        payer = authority,
-        mint::decimals = 9,
-        mint::authority = event,
-    )]
-    pub event_mint: Box<Account<'info, Mint>>,
-    #[account(
-        init,
         payer = authority,
         seeds = [b"vault".as_ref(), event.key().as_ref()],
         bump,
@@ -47,6 +43,7 @@ pub fn handle(
     ctx: Context<CreateEvent>,
     event_id: String,
     redeem_date: i64,
+    capacity: u64,
     _event_space: u32,
 ) -> Result<()> {
     ctx.accounts.event.authority = ctx.accounts.authority.key();
@@ -54,13 +51,13 @@ pub fn handle(
     ctx.accounts.event.redeem_date = redeem_date;
     ctx.accounts.event.votes_stats = Vec::new();
     ctx.accounts.event.is_redeemed = false;
-
-    ctx.accounts.event.event_mint = ctx.accounts.event_mint.key();
+    ctx.accounts.event.capacity = capacity;
+    ctx.accounts.event.registered_participants = 0;
+    
     ctx.accounts.event.accepted_mint = ctx.accounts.accepted_mint.key();
     ctx.accounts.event.vault = ctx.accounts.vault.key();
     ctx.accounts.event.bumps = EventBumps {
         event_bump: *ctx.bumps.get("event").unwrap(),
-        event_mint_bump: *ctx.bumps.get("event_mint").unwrap(),
         vault_bump: *ctx.bumps.get("vault").unwrap(),
     };
 
